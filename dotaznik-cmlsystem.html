@@ -1161,7 +1161,9 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
     }
   }
 
-  function sendEmail() {
+  const WEBHOOK_URL = 'https://hook.eu1.make.com/mgvc9oh3r3cwkv3rrxfem9jdgwiy8d09';
+
+  async function sendEmail() {
     save();
     if(selectedPrijemci.length === 0){
       alert('Vyberte prosím alespoň jednoho příjemce.');
@@ -1172,37 +1174,124 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
       return;
     }
 
+    const btn = document.getElementById('btnEmail') || document.getElementById('btnEmailDone');
+    if(btn){ btn.textContent = '⏳ Odesílám…'; btn.disabled = true; }
+
     const klient = ((fdata['f_fn']||'') + ' ' + (fdata['f_ln']||'')).trim() || '—';
-    const nemovitost = fdata['f_prop'] || '—';
+    const nemovitost = (fdata['f_prop']||'') + (fdata['f_unit'] ? ', '+fdata['f_unit'] : '');
     const datum = new Date().toLocaleDateString('cs-CZ');
     const makler = selectedMakler ? selectedMakler.name : '—';
-    const pdfName = 'dotaznik-' + klient.replace(/\s+/g,'-').toLowerCase() + '-' + datum.replace(/\./g,'-') + '.pdf';
+    const maklerEmail = selectedMakler ? selectedMakler.email : '—';
+    const pdfName = 'dotaznik-' + klient.replace(/\s+/g,'-').toLowerCase() + '-' + new Date().toISOString().slice(0,10) + '.pdf';
 
-    // 1. Stáhnout PDF
+    // Generovat PDF jako base64
+    let pdfBase64 = '';
     try {
       const pdfDoc = buildPDFDoc();
-      pdfDoc.save(pdfName);
+      pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
     } catch(e) {
+      if(btn){ btn.textContent = '✉ Stáhnout PDF & Odeslat'; btn.disabled = false; }
       alert('Chyba při generování PDF: ' + e.message);
       return;
     }
 
-    // 2. Otevřít e-mail s předvyplněným textem (po malé prodlevě aby se PDF stihlo uložit)
-    setTimeout(() => {
-      const to = selectedPrijemci.join(',');
-      const subject = encodeURIComponent('Nový dotazník – ' + klient);
-      const body = encodeURIComponent(
-        'Dobrý den,\n\n' +
-        'v příloze naleznete vyplněný dotazník podnájemní smlouvy.\n\n' +
-        'Klient: ' + klient + '\n' +
-        'Nemovitost: ' + nemovitost + '\n' +
-        'Datum: ' + datum + '\n' +
-        'Makléř: ' + makler + '\n\n' +
-        '⚠ Nezapomeňte přiložit soubor: ' + pdfName + '\n\n' +
-        'S pozdravem'
-      );
-      window.location.href = 'mailto:' + to + '?subject=' + subject + '&body=' + body;
-    }, 800);
+    // Sestavit payload se všemi daty
+    const payload = {
+      // Meta
+      odeslano: new Date().toISOString(),
+      makler_jmeno: makler,
+      makler_email: maklerEmail,
+      prijemci: selectedPrijemci,
+      pdf_nazev: pdfName,
+      pdf_base64: pdfBase64,
+
+      // Krok 1 – Nájemce
+      typ_klienta: fdata['tg-type'] || '',
+      jmeno: fdata['f_fn'] || '',
+      prijmeni: fdata['f_ln'] || '',
+      datum_narozeni: fdata['f_dob'] || '',
+      rodne_cislo: fdata['f_rc'] || '',
+      statni_prislusnost: fdata['f_nat'] || '',
+      cislo_viza: fdata['f_visa'] || '',
+      trvale_bydliste: fdata['f_addr'] || '',
+      telefon: fdata['f_tel'] || '',
+      email: fdata['f_email'] || '',
+      cislo_prukazu: fdata['f_pid'] || '',
+      pracovni_status: fdata['tg-emp'] || '',
+      zamestnavatel: fdata['f_emp'] || '',
+      ico: fdata['f_ico'] || '',
+      kurak: fdata['tg-smoke'] || '',
+      dorucovaci_adresa_shodna: fdata['tg-sameaddr'] || '',
+      dorucovaci_adresa: fdata['f_daddr'] || '',
+      predchozi_pronajimatel: fdata['f_pname'] || '',
+      predchozi_pronajimatel_kontakt: fdata['f_pcont'] || '',
+      zdroj_informace: fdata['tg-src'] || '',
+      zdroj_jine: fdata['f_srcother'] || '',
+
+      // Krok 2 – Nemovitost
+      adresa_nemovitosti: fdata['f_prop'] || '',
+      cislo_jednotky: fdata['f_unit'] || '',
+      dispozice: fdata['f_disp'] || '',
+      plocha_m2: fdata['f_area'] || '',
+      patro: fdata['f_floor'] || '',
+      poznamky_nemovitost: fdata['f_notes'] || '',
+
+      // Krok 3 – Finance
+      najemne_kc: fdata['f_rent'] || '',
+      kauce_kc: fdata['f_dep'] || '',
+      zpusob_platby: fdata['f_pay'] || '',
+      iban: fdata['f_iban'] || '',
+
+      // Krok 4 – Smlouva
+      typ_smlouvy: fdata['tg-con'] || '',
+      datum_zahajeni: fdata['f_start'] || '',
+      datum_ukonceni: fdata['f_end'] || '',
+      vypopvedni_lhuta: fdata['tg-notice'] || '',
+      dalsi_podminky: fdata['f_extra'] || '',
+
+      // Spolubydlící
+      spolubydlici: roommates.map(id => ({
+        jmeno: document.getElementById('rn_'+id)?.value || '',
+        datum_narozeni: document.getElementById('rd_'+id)?.value || '',
+        telefon: document.getElementById('rp_'+id)?.value || '',
+        email: document.getElementById('re_'+id)?.value || '',
+      })),
+
+      // Zvíře
+      zvire: animal ? {
+        druh: document.getElementById('a_type')?.value || '',
+        plemeno: document.getElementById('a_breed')?.value || '',
+        cislo_cipu: document.getElementById('a_chip')?.value || '',
+      } : null,
+
+      // Krok 5 – Podpis
+      misto_podpisu: fdata['f_place'] || '',
+      datum_podpisu: fdata['f_sdate'] || '',
+    };
+
+    // Odeslat na webhook
+    try {
+      const resp = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if(resp.ok){
+        if(btn){ btn.textContent = '✉ Stáhnout PDF & Odeslat'; btn.disabled = false; }
+        // Také stáhnout PDF lokálně
+        try {
+          const pdfDoc2 = buildPDFDoc();
+          pdfDoc2.save(pdfName);
+        } catch(e){}
+        alert('✓ Dotazník byl úspěšně odeslán!\nPDF se stahuje do vašeho zařízení.');
+      } else {
+        throw new Error('Server odpověděl: ' + resp.status);
+      }
+    } catch(e) {
+      if(btn){ btn.textContent = '✉ Stáhnout PDF & Odeslat'; btn.disabled = false; }
+      alert('Chyba při odesílání: ' + e.message + '\n\nZkontrolujte připojení k internetu.');
+    }
   }
 
   let aiLoading=false;
