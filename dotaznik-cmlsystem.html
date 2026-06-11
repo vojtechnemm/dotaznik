@@ -1128,7 +1128,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
     return doc;
   }
 
-  function genPDF(){
+  async function genPDF(){
   save();
   if(!window.jspdf||!window.jspdf.jsPDF){
     const btn=document.querySelector('.btn-pdf');
@@ -1152,7 +1152,8 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
   const _fn=((fdata['f_fn']||'')+(fdata['f_ln']?'-'+fdata['f_ln']:'')).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   doc.save(`dotaznik-${_fn||'klient'}-${new Date().toISOString().slice(0,10)}.pdf`);
   // Odeslat data na webhook i při stažení PDF
-  sendToWebhook(doc);
+  save();
+  await sendToWebhook(doc);
   }
   function togPrijemce(btn, email) {
     btn.classList.toggle('sel');
@@ -1166,7 +1167,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
   const WEBHOOK_URL = 'https://hook.eu1.make.com/mgvc9oh3r3cwkv3rrxfem9jdgwiy8d09';
 
   async function sendToWebhook(pdfDoc) {
-    save();
+    console.log('sendToWebhook called, fdata:', JSON.stringify(fdata).slice(0,100));
     const klient = ((fdata['f_fn']||'') + ' ' + (fdata['f_ln']||'')).trim() || '—';
     const nemovitost = (fdata['f_prop']||'') + (fdata['f_unit'] ? ', '+fdata['f_unit'] : '');
     const datum = new Date().toLocaleDateString('cs-CZ');
@@ -1246,9 +1247,9 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
         },
         body: JSON.stringify(payload)
       });
-      console.log('Webhook odeslán OK');
+      console.log('Webhook odeslán OK, status:', resp.status);
     } catch(e) {
-      console.error('Webhook chyba:', e);
+      console.error('Webhook chyba:', e.message, e);
     }
   }
 
@@ -1274,7 +1275,8 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
       return;
     }
 
-    // Odeslat na webhook
+    // Uložit všechna data a odeslat na webhook
+    save();
     await sendToWebhook(pdfDoc);
 
     // Stáhnout PDF lokálně
