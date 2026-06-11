@@ -1273,7 +1273,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
     try {
       const resp = await fetch(WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-make-apikey': 'DotaznikPronajmy2026' },
         body: JSON.stringify(payload)
       });
 
