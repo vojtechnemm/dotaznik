@@ -682,6 +682,9 @@ const aiHints=[
     { name: 'Karolína Rencová',  email: 'karolina.rencova@salutemreal.cz' },
     { name: 'Václav Gottlieb',   email: 'vaclav.gottlieb@salutemreal.cz' },
     { name: 'Petr Žajdlík',      email: 'petr.zajdlik@zapk.cz' },
+    { name: 'David Mužík',       email: 'david.muzik@promareal.cz' },
+    { name: 'Miloš Vondráček',   email: 'milos.vondracek@zapk.cz' },
+    { name: 'Jiří Smyčka',       email: 'jiri.smycka@zapk.cz' },
   ];
 
   let selectedMakler = null;
@@ -699,10 +702,10 @@ const aiHints=[
 const uid=()=>Math.random().toString(36).slice(2,7);
 
 const REQ={
-  0:[{type:'makler'},{id:'f_fn'},{id:'f_ln'},{id:'f_dob'},{id:'f_nat'},{id:'f_addr'},{id:'f_tel'},{id:'f_email'},{id:'f_pid'},{type:'tg',g:'tg-emp'},{type:'tg',g:'tg-smoke'},{id:'f_pname'},{id:'f_pcont'},{type:'tg',g:'tg-src'}],
+  0:[{type:'makler'},{id:'f_fn'},{id:'f_ln'},{id:'f_dob'},{id:'f_nat'},{id:'f_addr'},{id:'f_tel'},{id:'f_email'},{id:'f_pid'},{id:'f_bank'},{type:'tg',g:'tg-emp'},{type:'tg',g:'tg-smoke'},{id:'f_pname'},{id:'f_pcont'},{type:'tg',g:'tg-src'}],
   1:[{id:'f_prop'},{id:'f_unit'},{id:'f_area'},{id:'f_floor'}],
   2:[{id:'f_rent'},{id:'f_dep'},{id:'f_pay'}],
-  3:[{type:'tg',g:'tg-con'},{id:'f_start'},{type:'tg',g:'tg-notice'}],
+  3:[{type:'tg',g:'tg-con'},{id:'f_start'},],
   4:[{id:'f_place'},{id:'f_sdate'}]
 };
 
@@ -736,7 +739,7 @@ function save(){
   ['f_fn','f_ln','f_dob','f_rc','f_nat','f_visa','f_addr','f_tel','f_email','f_pid',
    'f_emp','f_ico','f_pname','f_pcont','f_srcother','f_daddr',
    'f_prop','f_unit','f_disp','f_area','f_floor','f_notes',
-   'f_rent','f_dep','f_iban','f_pay','f_start','f_end','f_extra','f_place','f_sdate'
+   'f_rent','f_dep','f_iban','f_pay','f_start','f_end','f_extra','f_place','f_sdate','f_bank','f_notice_val'
   ].forEach(id=>{const el=document.getElementById(id);if(el)fdata[id]=el.value;});
   ['tg-type','tg-emp','tg-smoke','tg-saddr','tg-con','tg-notice'].forEach(g=>{
     const s=document.querySelector(`#${g} .tbtn.sel`);
@@ -830,6 +833,10 @@ const STEPS=[
       <div class="field" style="margin-bottom:0"><label class="field-label">Číslo průkazu totožnosti <span class="req">*</span></label><input type="text" id="f_pid" placeholder="123456789" /></div>
     </div>
     <div class="card">
+      <div class="card-title">Bankovní účet nájemce</div>
+      <div class="field" style="margin-bottom:0"><label class="field-label">IBAN / číslo účtu <span class="req">*</span></label><input type="text" id="f_bank" placeholder="CZ65 0800 0000 1920 0014 5399" /></div>
+    </div>
+    <div class="card">
       <div class="card-title">Zaměstnání</div>
       <div class="field"><label class="field-label">Pracovní status <span class="req">*</span></label><div class="toggle-group" id="tg-emp"><button class="tbtn sel" onclick="tog(this,'tg-emp');togEmp()">Zaměstnaný</button><button class="tbtn" onclick="tog(this,'tg-emp');togEmp()">Podnikatel / OSVČ</button><button class="tbtn" onclick="tog(this,'tg-emp');togEmp()">Nezaměstnaný</button><button class="tbtn" onclick="tog(this,'tg-emp');togEmp()">Student</button><button class="tbtn" onclick="tog(this,'tg-emp');togEmp()">Důchodce</button></div></div>
       <div id="empBlk"><div class="field" style="margin-bottom:0"><label class="field-label">Název zaměstnavatele <span class="req">*</span></label><input type="text" id="f_emp" placeholder="Firma s.r.o." /></div></div>
@@ -860,7 +867,22 @@ const STEPS=[
   {t:"Předmět podnájmu",render:()=>`
     <div class="card">
       <div class="card-title">Nemovitost</div>
-      <div class="field"><label class="field-label">Adresa nemovitosti <span class="req">*</span></label><input type="text" id="f_prop" placeholder="Dlouhá 22, 110 00 Praha 1" /></div>
+      <div class="field"><label class="field-label">Adresa nemovitosti <span class="req">*</span></label><input type="text" id="f_prop" placeholder="Začněte psát nebo vyberte ze seznamu..." list="prop-list" autocomplete="off" />
+        <datalist id="prop-list">
+          <option value="1459 Modrásek třída Bří Čapků 3222/9, 695 01 Hodonín">
+          <option value="1522 Nerudova 735/4, 400 04 Trmice">
+          <option value="1302 Purkyňova 1093/7, 400 03 Ústí nad Labem">
+          <option value="1313 MT - nám. T. G. Masaryka 33/27, 571 01 Moravská Třebová">
+          <option value="1501 Hodonín II. - třída Bří Čapků 3920/1a, 695 01 Hodonín">
+          <option value="1511 BD Lomnice nad Popelkou - U Svobodárny 1032, 512 51 Lomnice nad Popelkou">
+          <option value="1529/1528 - Banskobystrická 1276/44, 787 01 Šumperk">
+          <option value="1531 tř. Budovatelů 2831/54, 434 01 Most">
+          <option value="1537 - NEKOTEX - Pekařská 1712/3, 350 02 Cheb">
+          <option value="1539 - U Jeslí 1918/18, 400 01 Ústí nad Labem">
+          <option value="1539 - U Jeslí 1919/20, 400 01 Ústí nad Labem">
+          <option value="1539 - U Jeslí 1920/22, 400 01 Ústí nad Labem">
+          <option value="Lipno nad Vltavou 49, 38278 Lipno nad Vltavou">
+        </datalist></div>
       <div class="row2">
         <div class="field"><label class="field-label">Číslo jednotky <span class="req">*</span></label><input type="text" id="f_unit" placeholder="Byt č. 14" /></div>
         <div class="field"><label class="field-label">Dispozice <span class="req">*</span></label><select id="f_disp"><option>1+kk</option><option>1+1</option><option>2+kk</option><option>2+1</option><option>3+kk</option><option>3+1</option><option>4+kk</option><option>4+1</option><option>5+kk</option><option>Jiné</option></select></div>
@@ -877,7 +899,7 @@ const STEPS=[
       <div class="card-title">Nájemné a kauce</div>
       <div class="row2">
         <div class="field"><label class="field-label">Měsíční nájemné (Kč) <span class="req">*</span></label><input type="number" id="f_rent" placeholder="18000" oninput="chkDep()" /></div>
-        <div class="field"><label class="field-label">Kauce (Kč) <span class="req">*</span></label><input type="number" id="f_dep" placeholder="36000" oninput="chkDep()" /><div class="err-inline" id="depErr">Kauce přesahuje zákonný limit 3× nájemné!</div></div>
+        <div class="field"><label class="field-label">Kauce / poplatek nad rámec nájemného (Kč) <span class="req">*</span></label><input type="number" id="f_dep" placeholder="36000" oninput="chkDep()" /><div class="err-inline" id="depErr">Kauce přesahuje zákonný limit 3× nájemné!</div></div>
       </div>
       <div class="row2">
         <div class="field"><label class="field-label">Způsob platby <span class="req">*</span></label><select id="f_pay"><option value="">— vyberte —</option><option>Bankovní převod</option><option>Hotovost</option><option>SIPO</option></select></div>
@@ -893,7 +915,7 @@ const STEPS=[
         <div class="field"><label class="field-label">Datum zahájení <span class="req">*</span></label><input type="date" id="f_start" /></div>
         <div id="endFld"><div class="field"><label class="field-label">Datum ukončení</label><input type="date" id="f_end" /></div></div>
       </div>
-      <div class="field"><label class="field-label">Výpovědní lhůta <span class="req">*</span></label><div class="toggle-group" id="tg-notice"><button class="tbtn" onclick="tog(this,'tg-notice')">1 měsíc</button><button class="tbtn sel" onclick="tog(this,'tg-notice')">3 měsíce</button><button class="tbtn" onclick="tog(this,'tg-notice')">6 měsíců</button></div></div>
+      <div class="field"><label class="field-label">Výpovědní lhůta v měsících (pokud se liší oproti standardu)</label><input type="number" id="f_notice_val" placeholder="např. 3" min="1" max="24" /></div>
       <div class="field" style="margin-bottom:0"><label class="field-label">Další smluvní podmínky</label><textarea id="f_extra" placeholder="Pravidelná kontrola bytu 1× ročně…"></textarea></div>
     </div>
     <div class="card">
@@ -926,7 +948,7 @@ const STEPS=[
     </div>
     <div class="card">
       <div class="card-title">Souhlas se zpracováním osobních údajů</div>
-      <p style="font-size:13.5px;color:var(--text-2);line-height:1.7;margin-bottom:1.1rem">Potvrzuji správnost uvedených údajů a souhlasím se zpracováním osobních údajů za účelem uzavření a plnění podnájemní smlouvy v souladu s GDPR a zákonem č. 110/2019 Sb.</p>
+      <p style="font-size:13.5px;color:var(--text-2);line-height:1.7;margin-bottom:1.1rem">Potvrzuji správnost uvedených údajů a souhlasím se zpracováním osobních údajů za účelem vyřízení mé žádosti a související administrativní agendy, v souladu s nařízením GDPR a zákonem č. 110/2019 Sb., o zpracování osobních údajů.</p>
       <div class="field">
         <label class="field-label">Podpis klienta</label>
         <div class="sig-wrap" id="sigPad"><canvas id="sig"></canvas><span class="sig-hint" id="sigHint">✏ Podepište zde prstem nebo stylusem</span></div>
@@ -1091,7 +1113,8 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
   two('Státní příslušnost',v('f_nat'),'Číslo víza',v('f_visa'));
   one('Trvalé bydliště',v('f_addr'));
   two('Telefon',v('f_tel'),'E-mail',v('f_email'));
-  two('Číslo průkazu totožnosti',v('f_pid'),'Doručovací adresa',d['tg-saddr']==='Ano'?'Shodná s trvalým bydlištěm':v('f_daddr'));
+  two('Číslo průkazu totožnosti',v('f_pid'),'Bankovní účet',v('f_bank'));
+  two('Doručovací adresa',d['tg-saddr']==='Ano'?'Shodná s trvalým bydlištěm':v('f_daddr'));
 
   sec('Zaměstnání & životní styl');
   two('Pracovní status',v('tg-emp'),'Zaměstnavatel / IČO',v('f_emp')||v('f_ico'));
@@ -1111,7 +1134,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
   two('Způsob platby',v('f_pay'),'IBAN / účet',v('f_iban'));
 
   sec('Podmínky smlouvy');
-  two('Typ smlouvy',v('tg-con'),'Výpovědní lhůta',v('tg-notice'));
+  two('Typ smlouvy',v('tg-con'),'Výpovědní lhůta',fdata['f_notice_val']?fdata['f_notice_val']+' měsíců':'—');
   two('Datum zahájení',v('f_start'),'Datum ukončení',v('f_end'));
   if(d['f_extra']&&d['f_extra'].trim())one('Další podmínky',v('f_extra'));
 
@@ -1155,7 +1178,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
   doc.setFillColor(...BGL);doc.roundedRect(M,y,TW,11,1,1,'F');
   doc.setDrawColor(...BD);doc.roundedRect(M,y,TW,11,1,1,'S');
   doc.setFontSize(6.5);doc.setFont('NotoSans','normal');doc.setTextColor(...GR);
-  const gt=doc.splitTextToSize('Klient potvrzuje správnost údajů a souhlasí se zpracováním osobních údajů za účelem uzavření podnájemní smlouvy v souladu s GDPR a zákonem č. 110/2019 Sb.',TW-6);
+  const gt=doc.splitTextToSize('Klient potvrzuje správnost údajů a souhlasí se zpracováním osobních údajů za účelem vyřízení žádosti a související administrativní agendy, v souladu s nařízením GDPR a zákonem č. 110/2019 Sb., o zpracování osobních údajů.',TW-6);
   doc.text(gt,M+3,y+4.5);
 
   const pg=doc.getNumberOfPages();
@@ -1242,6 +1265,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
       telefon: fdata['f_tel'] || '',
       email: fdata['f_email'] || '',
       cislo_prukazu: fdata['f_pid'] || '',
+      bankovni_ucet: fdata['f_bank'] || '',
       pracovni_status: fdata['tg-emp'] || '',
       zamestnavatel: fdata['f_emp'] || '',
       ico: fdata['f_ico'] || '',
@@ -1265,7 +1289,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
       typ_smlouvy: fdata['tg-con'] || '',
       datum_zahajeni: fdata['f_start'] || '',
       datum_ukonceni: fdata['f_end'] || '',
-      vypopvedni_lhuta: fdata['tg-notice'] || '',
+      vypopvedni_lhuta: fdata['f_notice_val'] ? fdata['f_notice_val'] + ' měsíců' : '',
       dalsi_podminky: fdata['f_extra'] || '',
       spolubydlici: roommates.map(id => ({
         jmeno: document.getElementById('rn_'+id)?.value || '',
