@@ -1,4 +1,4 @@
-const CACHE = 'dotaznik-v3';
+const CACHE = 'dotaznik-v4';
 const FILES = [
   './dotaznik-cmlsystem.html',
   './manifest.json',
