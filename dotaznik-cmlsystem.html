@@ -666,7 +666,8 @@ const aiHints=[
   "Popište nemovitost přesně – adresa, číslo jednotky a dispozice jsou klíčové pro smlouvu.",
   "Kauce nesmí ze zákona přesáhnout trojnásobek měsíčního nájemného (§ 2254 OZ).",
   "Spolubydlící a zvíře přidejte jen pokud jsou relevantní – jejich údaje půjdou do smlouvy.",
-  "Nechte klienta podepsat a vygenerujte PDF se všemi vyplněnými údaji."
+  "Nechte klienta podepsat a potvrdit souhlas se zpracováním osobních údajů.",
+  "Vyberte příjemce a odešlete dotazník nebo stáhněte PDF."
 ];
 
 
@@ -706,7 +707,8 @@ const REQ={
   1:[{id:'f_prop'},{id:'f_unit'},{id:'f_area'},{id:'f_floor'}],
   2:[{id:'f_rent'},{id:'f_dep'},{id:'f_pay'}],
   3:[{type:'tg',g:'tg-con'},{id:'f_start'},],
-  4:[{id:'f_place'},{id:'f_sdate'}]
+  4:[{id:'f_place'},{id:'f_sdate'}],
+  5:[]
 };
 
 function validate(){
@@ -959,22 +961,28 @@ const STEPS=[
         <div class="field" style="margin-bottom:0"><label class="field-label">Datum podpisu <span class="req">*</span></label><input type="date" id="f_sdate" /></div>
       </div>
     </div>
+`
+  },
+  {t:"Odeslání a stažení",render:()=>`
     <div class="card">
-      <div class="card-title">Odeslat zpracovateli smlouvy</div>
+      <div class="card-title">Příjemce</div>
       <div class="field" style="margin-bottom:0">
-        <label class="field-label">Vyberte příjemce <span class="req">*</span></label>
+        <label class="field-label">Komu odeslat dotazník</label>
         <div class="toggle-group" style="flex-wrap:wrap" id="tg-prijemci">
           ${PRIJEMCI.map(p=>`<button class="tbtn${selectedPrijemci.includes(p.email)?' sel':''}" onclick="togPrijemce(this,'${p.email}')">${p.name}</button>`).join('')}
         </div>
       </div>
     </div>
-    <div class="action-btns">
-      <button class="btn-pdf" onclick="genPDF()">⬇ Stáhnout PDF</button>
-      <button class="btn-email" id="btnEmail" onclick="sendEmail()">✉ Stáhnout PDF & Odeslat</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-      <button class="btn-webhook" id="btnWebhookOnly" onclick="sendOnlyWebhook()" style="flex:1">📤 Odeslat data do systému</button>
-      <button onclick="testWebhook()" title="Ověřit propojení s Make.com" style="padding:8px 12px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text-3);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .2s" id="btnTestConn">🔗 Test</button>
+    <div class="card">
+      <div class="card-title">Akce</div>
+      <div class="action-btns">
+        <button class="btn-pdf" onclick="genPDF()">⬇ Stáhnout PDF</button>
+        <button class="btn-email" id="btnEmail" onclick="sendEmail()">✉ Stáhnout PDF & Odeslat</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+        <button class="btn-webhook" id="btnWebhookOnly" onclick="sendOnlyWebhook()" style="flex:1">📤 Odeslat data do systému</button>
+        <button onclick="testWebhook()" title="Ověřit propojení s Make.com" style="padding:8px 12px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text-3);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .2s" id="btnTestConn">🔗 Test</button>
+      </div>
     </div>`
   }
 ];
@@ -996,7 +1004,9 @@ function render(){
   document.getElementById('aiText').textContent=aiHints[cur];
   renderChips();
   document.getElementById('btnPrev').style.visibility=cur===0?'hidden':'visible';
-  document.getElementById('btnNext').textContent=cur===STEPS.length-1?'Dokončit ✓':'Pokračovat →';
+  const isLast=cur===STEPS.length-1;
+  document.getElementById('btnNext').textContent=isLast?'Dokončit ✓':'Pokračovat →';
+  document.getElementById('btnNext').style.display=isLast?'none':'';
   const today=new Date().toISOString().split('T')[0];
   const sd=document.getElementById('f_sdate');if(sd)sd.value=today;
   const fs=document.getElementById('f_start');if(fs&&!fs.value)fs.value=today;
@@ -1406,7 +1416,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
       return;
     }
     const btn = document.getElementById('btnEmail') || document.getElementById('btnEmailDone');
-    if(btn){ btn.textContent = '⏳ Odesílám…'; btn.disabled = true; }
+    if(btn){ btn.textContent = '⏳ Připravuji…'; btn.disabled = true; }
 
     let pdfDoc;
     try {
@@ -1417,17 +1427,142 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
       return;
     }
 
-    // Uložit všechna data a odeslat na webhook
+    const klient = ((fdata['f_fn']||'') + ' ' + (fdata['f_ln']||'')).trim() || 'klient';
+    const pdfName = 'dotaznik-' + klient.replace(/\s+/g,'-').toLowerCase() + '-' + new Date().toISOString().slice(0,10) + '.pdf';
+    const nemovitost = fdata['f_prop'] || '—';
+    const datum = new Date().toLocaleDateString('cs-CZ');
+    const makler = selectedMakler ? selectedMakler.name : '—';
+
+    // 1. Stáhnout PDF
+    pdfDoc.save(pdfName);
+
+    // 2. Odeslat na webhook
     save();
     await sendToWebhook(pdfDoc);
 
-    // Stáhnout PDF lokálně
-    const klient = ((fdata['f_fn']||'') + ' ' + (fdata['f_ln']||'')).trim() || 'klient';
-    const pdfName = 'dotaznik-' + klient.replace(/\s+/g,'-').toLowerCase() + '-' + new Date().toISOString().slice(0,10) + '.pdf';
-    pdfDoc.save(pdfName);
+    // 3. Otevřít emailového klienta
+    setTimeout(() => {
+      const to = selectedPrijemci.join(',');
+      const subject = encodeURIComponent('Nový dotazník – ' + klient);
+      const body = encodeURIComponent(
+        'Dobrý den,\n\n' +
+        'v příloze naleznete vyplněný dotazník podnájemní smlouvy.\n\n' +
+        'Klient: ' + klient + '\n' +
+        'Nemovitost: ' + nemovitost + '\n' +
+        'Datum: ' + datum + '\n' +
+        'Makléř: ' + makler + '\n\n' +
+        '⚠ Nezapomeňte přiložit soubor: ' + pdfName + '\n\n' +
+        'S pozdravem'
+      );
+      window.location.href = 'mailto:' + to + '?subject=' + subject + '&body=' + body;
+    }, 1200);
 
     if(btn){ btn.textContent = '✉ Stáhnout PDF & Odeslat'; btn.disabled = false; }
-    alert('✓ Dotazník byl odeslán a PDF se stahuje do vašeho zařízení.');
+  }
+  async function togPrijemce(btn, email) {
+    btn.classList.toggle('sel');
+    if(selectedPrijemci.includes(email)){
+      selectedPrijemci = selectedPrijemci.filter(e => e !== email);
+    } else {
+      selectedPrijemci.push(email);
+    }
+  }
+
+  async function sendToWebhook(pdfDoc) {
+    console.log('sendToWebhook called, fdata:', JSON.stringify(fdata).slice(0,100));
+    const klient = ((fdata['f_fn']||'') + ' ' + (fdata['f_ln']||'')).trim() || '—';
+    const nemovitost = (fdata['f_prop']||'') + (fdata['f_unit'] ? ', '+fdata['f_unit'] : '');
+    const datum = new Date().toLocaleDateString('cs-CZ');
+    const makler = selectedMakler ? selectedMakler.name : '—';
+    const maklerEmail = selectedMakler ? selectedMakler.email : '—';
+    const pdfName = 'dotaznik-' + klient.replace(/\s+/g,'-').toLowerCase() + '-' + new Date().toISOString().slice(0,10) + '.pdf';
+    let pdfBase64 = '';
+    try { pdfBase64 = pdfDoc ? pdfDoc.output('datauristring').split(',')[1] : ''; } catch(e) {}
+
+    const payload = {
+      odeslano: new Date().toISOString(),
+      makler_jmeno: makler, makler_email: maklerEmail,
+      prijemci: selectedPrijemci, pdf_nazev: pdfName, pdf_base64: pdfBase64,
+      typ_klienta: fdata['tg-type']||'', jmeno: fdata['f_fn']||'', prijmeni: fdata['f_ln']||'',
+      datum_narozeni: fdata['f_dob']||'', rodne_cislo: fdata['f_rc']||'',
+      statni_prislusnost: fdata['f_nat']||'', cislo_viza: fdata['f_visa']||'',
+      trvale_bydliste: fdata['f_addr']||'', telefon: fdata['f_tel']||'',
+      email: fdata['f_email']||'', cislo_prukazu: fdata['f_pid']||'',
+      bankovni_ucet: fdata['f_bank']||'',
+      pracovni_status: fdata['tg-emp']||'', zamestnavatel: fdata['f_emp']||'', ico: fdata['f_ico']||'',
+      kurak: fdata['tg-smoke']||'', dorucovaci_adresa_shodna: fdata['tg-saddr']||'',
+      dorucovaci_adresa: fdata['f_daddr']||'',
+      predchozi_pronajimatel: fdata['f_pname']||'', predchozi_pronajimatel_kontakt: fdata['f_pcont']||'',
+      zdroj_informace: fdata['tg-src']||'', zdroj_jine: fdata['f_srcother']||'',
+      adresa_nemovitosti: fdata['f_prop']||'', cislo_jednotky: fdata['f_unit']||'',
+      dispozice: fdata['f_disp']||'', plocha_m2: fdata['f_area']||'', patro: fdata['f_floor']||'',
+      poznamky_nemovitost: fdata['f_notes']||'',
+      najemne_kc: fdata['f_rent']||'', kauce_kc: fdata['f_dep']||'',
+      zpusob_platby: fdata['f_pay']||'', iban: fdata['f_iban']||'',
+      typ_smlouvy: fdata['tg-con']||'', datum_zahajeni: fdata['f_start']||'',
+      datum_ukonceni: fdata['f_end']||'',
+      vypopvedni_lhuta: fdata['f_notice_val'] ? fdata['f_notice_val']+' měsíců' : '',
+      dalsi_podminky: fdata['f_extra']||'',
+      spolubydlici: roommates.map(id => ({
+        jmeno: document.getElementById('rn_'+id)?.value||'',
+        datum_narozeni: document.getElementById('rd_'+id)?.value||'',
+        telefon: document.getElementById('rp_'+id)?.value||'',
+        email: document.getElementById('re_'+id)?.value||'',
+      })),
+      zvire: animal ? {
+        druh: document.getElementById('a_type')?.value||'',
+        plemeno: document.getElementById('a_breed')?.value||'',
+        cislo_cipu: document.getElementById('a_chip')?.value||'',
+      } : null,
+      misto_podpisu: fdata['f_place']||'', datum_podpisu: fdata['f_sdate']||'',
+    };
+
+    try {
+      const resp = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-make-apikey': 'DotaznikPronajmy2026' },
+        body: JSON.stringify(payload)
+      });
+      console.log('Webhook odeslán OK, status:', resp.status);
+    } catch(e) {
+      console.error('Webhook chyba:', e.message, e);
+    }
+  }
+
+  async function sendOnlyWebhook() {
+    save();
+    if(!window.jspdf||!window.jspdf.jsPDF){
+      alert('PDF knihovna ještě není načtena. Chvíli počkejte a zkuste znovu.');
+      return;
+    }
+    const btn = document.getElementById('btnWebhookOnly') || document.getElementById('btnWebhookOnlyDone');
+    if(btn){ btn.textContent = '⏳ Odesílám data…'; btn.disabled = true; }
+    let pdfDoc;
+    try { pdfDoc = buildPDFDoc(); } catch(e) { pdfDoc = null; }
+    await sendToWebhook(pdfDoc);
+    if(btn){ btn.textContent = '📤 Odeslat data do systému'; btn.disabled = false; }
+    alert('✓ Data byla úspěšně odeslána do systému.');
+  }
+
+  async function testWebhook() {
+    const btns = [document.getElementById('btnTestConn'), document.getElementById('btnTestConnDone')];
+    btns.forEach(b => { if(b){ b.textContent = '⏳'; b.disabled = true; }});
+    try {
+      const resp = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-make-apikey': 'DotaznikPronajmy2026' },
+        body: JSON.stringify({ test: true, odeslano: new Date().toISOString(), zdroj: 'test-tlacitko' })
+      });
+      if(resp.ok || resp.status === 200){
+        btns.forEach(b => { if(b){ b.textContent = '✅'; b.style.color='var(--green)'; b.disabled=false; }});
+        setTimeout(() => btns.forEach(b => { if(b){ b.textContent='🔗 Test'; b.style.color='var(--text-3)'; }}), 3000);
+        alert('✅ Propojení s Make.com funguje! (Status: ' + resp.status + ')');
+      } else { throw new Error('Status: ' + resp.status); }
+    } catch(e) {
+      btns.forEach(b => { if(b){ b.textContent='❌'; b.style.color='#E04B4B'; b.disabled=false; }});
+      setTimeout(() => btns.forEach(b => { if(b){ b.textContent='🔗 Test'; b.style.color='var(--text-3)'; }}), 3000);
+      alert('❌ Propojení selhalo: ' + e.message + '\n\nZkontrolujte jestli je scénář v Make.com aktivní.');
+    }
   }
 
   let aiLoading=false;
@@ -1451,12 +1586,11 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
       <div class="success">
         <div class="success-icon">✓</div>
         <h2 style="font-size:22px;font-weight:600;margin-bottom:8px;letter-spacing:-.3px">Formulář dokončen</h2>
-        <p style="color:var(--text-2);font-size:14.5px;margin-bottom:2rem">Všechny údaje jsou vyplněny. Stáhněte PDF nebo odešlete zpracovateli.</p>
+        <p style="color:var(--text-2);font-size:14.5px;margin-bottom:2rem">Všechny údaje jsou vyplněny.</p>
         <div class="action-btns" style="max-width:460px;margin:0 auto">
           <button class="btn-pdf" onclick="genPDF()">⬇ Stáhnout PDF</button>
           <button class="btn-email" id="btnEmailDone" onclick="sendEmail()">✉ Stáhnout PDF & Odeslat</button>
         </div>
-        <button class="btn-webhook" id="btnWebhookOnlyDone" onclick="sendOnlyWebhook()" style="max-width:460px;margin-top:10px;">📤 Odeslat data do systému</button>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;max-width:460px;margin-left:auto;margin-right:auto;">
           <button class="btn-webhook" id="btnWebhookOnlyDone" onclick="sendOnlyWebhook()" style="flex:1">📤 Odeslat data do systému</button>
           <button onclick="testWebhook()" title="Ověřit propojení s Make.com" style="padding:8px 12px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text-3);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .2s" id="btnTestConnDone">🔗 Test</button>
