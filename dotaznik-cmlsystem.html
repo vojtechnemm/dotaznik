@@ -703,7 +703,7 @@ const aiHints=[
 const uid=()=>Math.random().toString(36).slice(2,7);
 
 const REQ={
-  0:[{type:'makler'},{id:'f_fn'},{id:'f_ln'},{id:'f_dob'},{id:'f_nat'},{id:'f_addr'},{id:'f_tel'},{id:'f_email'},{id:'f_pid'},{id:'f_bank'},{type:'tg',g:'tg-emp'},{type:'tg',g:'tg-smoke'},{id:'f_pname'},{id:'f_pcont'},{type:'tg',g:'tg-src'}],
+  0:[{type:'makler'},{id:'f_fn'},{id:'f_ln'},{id:'f_dob'},{id:'f_nat'},{id:'f_addr'},{id:'f_tel'},{id:'f_email'},{id:'f_pidtype'},{id:'f_pid'},{id:'f_bank'},{type:'tg',g:'tg-emp'},{type:'tg',g:'tg-smoke'},{id:'f_pname'},{id:'f_pcont'},{type:'tg',g:'tg-src'}],
   1:[{id:'f_prop'},{id:'f_unit'},{id:'f_area'},{id:'f_floor'}],
   2:[{id:'f_rent'},{id:'f_dep'},{id:'f_pay'}],
   3:[{type:'tg',g:'tg-con'},{id:'f_start'},],
@@ -741,7 +741,7 @@ function save(){
   ['f_fn','f_ln','f_dob','f_rc','f_nat','f_visa','f_addr','f_tel','f_email','f_pid',
    'f_emp','f_ico','f_pname','f_pcont','f_srcother','f_daddr',
    'f_prop','f_unit','f_disp','f_area','f_floor','f_notes',
-   'f_rent','f_dep','f_iban','f_pay','f_start','f_end','f_extra','f_place','f_sdate','f_bank','f_notice_val'
+   'f_rent','f_dep','f_iban','f_pay','f_start','f_end','f_extra','f_place','f_sdate','f_bank','f_notice_val','f_pidtype'
   ].forEach(id=>{const el=document.getElementById(id);if(el)fdata[id]=el.value;});
   ['tg-type','tg-emp','tg-smoke','tg-saddr','tg-con','tg-notice'].forEach(g=>{
     const s=document.querySelector(`#${g} .tbtn.sel`);
@@ -832,7 +832,10 @@ const STEPS=[
         <div class="field"><label class="field-label">Telefon <span class="req">*</span></label><input type="tel" id="f_tel" placeholder="+420 123 456 789" /></div>
         <div class="field"><label class="field-label">E-mail <span class="req">*</span></label><input type="email" id="f_email" placeholder="jana@email.cz" /></div>
       </div>
-      <div class="field" style="margin-bottom:0"><label class="field-label">Číslo průkazu totožnosti <span class="req">*</span></label><input type="text" id="f_pid" placeholder="123456789" /></div>
+      <div class="row2" style="margin-bottom:0">
+        <div class="field" style="margin-bottom:0"><label class="field-label">Typ dokladu <span class="req">*</span></label><select id="f_pidtype"><option>Občanský průkaz</option><option>Cestovní pas</option><option>Povolení k pobytu</option><option>Řidičský průkaz</option><option>Jiné</option></select></div>
+        <div class="field" style="margin-bottom:0"><label class="field-label">Číslo průkazu totožnosti <span class="req">*</span></label><input type="text" id="f_pid" placeholder="123456789" /></div>
+      </div>
     </div>
     <div class="card">
       <div class="card-title">Bankovní účet nájemce</div>
@@ -1123,8 +1126,8 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
   two('Státní příslušnost',v('f_nat'),'Číslo víza',v('f_visa'));
   one('Trvalé bydliště',v('f_addr'));
   two('Telefon',v('f_tel'),'E-mail',v('f_email'));
-  two('Číslo průkazu totožnosti',v('f_pid'),'Bankovní účet',v('f_bank'));
-  two('Doručovací adresa',d['tg-saddr']==='Ano'?'Shodná s trvalým bydlištěm':v('f_daddr'));
+  two('Typ dokladu',v('f_pidtype'),'Číslo průkazu totožnosti',v('f_pid'));
+  two('Bankovní účet',v('f_bank'),'Doručovací adresa',d['tg-saddr']==='Ano'?'Shodná s trvalým bydlištěm':v('f_daddr'));
 
   sec('Zaměstnání & životní styl');
   two('Pracovní status',v('tg-emp'),'Zaměstnavatel / IČO',v('f_emp')||v('f_ico'));
@@ -1487,7 +1490,7 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
       datum_narozeni: fdata['f_dob']||'', rodne_cislo: fdata['f_rc']||'',
       statni_prislusnost: fdata['f_nat']||'', cislo_viza: fdata['f_visa']||'',
       trvale_bydliste: fdata['f_addr']||'', telefon: fdata['f_tel']||'',
-      email: fdata['f_email']||'', cislo_prukazu: fdata['f_pid']||'',
+      email: fdata['f_email']||'', typ_dokladu: fdata['f_pidtype']||'', cislo_prukazu: fdata['f_pid']||'',
       bankovni_ucet: fdata['f_bank']||'',
       pracovni_status: fdata['tg-emp']||'', zamestnavatel: fdata['f_emp']||'', ico: fdata['f_ico']||'',
       kurak: fdata['tg-smoke']||'', dorucovaci_adresa_shodna: fdata['tg-saddr']||'',
@@ -1609,9 +1612,31 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(() => console.log('SW registered'))
-      .catch(err => console.log('SW error:', err));
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      console.log('SW registered');
+
+      // Pokud je k dispozici nová verze, aktivovat ji okamžitě
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // Nová verze je nainstalovaná - vynutit její aktivaci
+            newWorker.postMessage('skipWaiting');
+          }
+        });
+      });
+
+      // Zkontrolovat aktualizace při každém načtení stránky
+      reg.update();
+    }).catch(err => console.log('SW error:', err));
+
+    // Když nový SW převezme kontrolu, obnovit stránku, aby se použila nová verze
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
   });
 }
 </script>
