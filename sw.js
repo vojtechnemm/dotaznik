@@ -1,5 +1,5 @@
 // Verze cache se mění při každém nasazení - vynucuje vždy čerstvé načtení
-const CACHE = 'dotaznik-v6';
+const CACHE = 'dotaznik-v7';
 const FILES = [
   './dotaznik-cmlsystem.html',
   './manifest.json'
