@@ -1409,10 +1409,6 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
 
   async function sendEmail() {
     save();
-    if(selectedPrijemci.length === 0){
-      alert('Vyberte prosím alespoň jednoho příjemce.');
-      return;
-    }
     if(!window.jspdf||!window.jspdf.jsPDF){
       alert('PDF knihovna ještě není načtena. Chvíli počkejte a zkuste znovu.');
       return;
@@ -1435,15 +1431,14 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
     const datum = new Date().toLocaleDateString('cs-CZ');
     const makler = selectedMakler ? selectedMakler.name : '—';
 
-    // 1. Stáhnout PDF
-    pdfDoc.save(pdfName);
-
-    // 2. Odeslat na webhook
-    save();
+    // 1. Odeslat na webhook DŘÍVE než cokoli jiného
     await sendToWebhook(pdfDoc);
 
-    // 3. Otevřít emailového klienta
-    setTimeout(() => {
+    // 2. Stáhnout PDF
+    pdfDoc.save(pdfName);
+
+    // 3. Otevřít emailového klienta (jen pokud jsou vybráni příjemci)
+    if(selectedPrijemci.length > 0){
       const to = selectedPrijemci.join(',');
       const subject = encodeURIComponent('Nový dotazník – ' + klient);
       const body = encodeURIComponent(
@@ -1456,8 +1451,9 @@ function clearSig(){if(sigCtx&&sigCv){sigCtx.clearRect(0,0,sigCv.width,sigCv.hei
         '⚠ Nezapomeňte přiložit soubor: ' + pdfName + '\n\n' +
         'S pozdravem'
       );
-      window.location.href = 'mailto:' + to + '?subject=' + subject + '&body=' + body;
-    }, 1200);
+      // Použít window.open místo location.href aby se stránka nepřesměrovala
+      window.open('mailto:' + to + '?subject=' + subject + '&body=' + body, '_self');
+    }
 
     if(btn){ btn.textContent = '✉ Stáhnout & odeslat dotazník'; btn.disabled = false; }
   }
